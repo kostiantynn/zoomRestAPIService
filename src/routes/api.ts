@@ -2,8 +2,10 @@ import express, {
   Request as RequestExpress,
   Response as ResponseExpress,
 } from "express";
-const fetch = require("node-fetch");
-const bodyParser = require("body-parser");
+import fetch from "node-fetch";
+import bodyParser from "body-parser";
+import crypto from "crypto";
+import { Constants } from "../constants";
 
 const apiRouter = express.Router();
 apiRouter.use(bodyParser.json());
@@ -27,7 +29,7 @@ apiRouter
     const options = {
       method: "GET",
       headers: {
-        Authorization: `Bearer ${process.env.JWT_ZOOM_TOKEN}`,
+        Authorization: `Bearer ${Constants.JWT_ZOOM_TOKEN}`,
         "content-type": "application/json",
       },
     };
@@ -51,7 +53,7 @@ apiRouter
     const options = {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${process.env.JWT_ZOOM_TOKEN}`,
+        Authorization: `Bearer ${Constants.JWT_ZOOM_TOKEN}`,
         "content-type": "application/json",
       },
       body: JSON.stringify({
@@ -84,6 +86,23 @@ apiRouter
         console.error(err);
       }
     })();
+  });
+
+apiRouter
+  .route("/gensignature")
+  .post((_req: RequestExpress, _res: ResponseExpress) => {
+    const timestamp = new Date().getTime() - 30000;
+    const msg = Buffer.from(
+      Constants.API_KEY + _req.body.meetingNumber + timestamp + _req.body.role
+    ).toString("base64");
+    const hash = crypto
+      .createHmac("sha256", Constants.API_SECRET!)
+      .update(msg)
+      .digest("base64");
+    const signature = Buffer.from(
+      `${Constants.API_KEY}.${_req.body.meetingNumber}.${timestamp}.${_req.body.role}.${hash}`
+    ).toString("base64");
+    _res.status(201).send({ signature });
   });
 
 module.exports = apiRouter;
